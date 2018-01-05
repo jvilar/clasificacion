@@ -24,6 +24,9 @@ dependencies:
 
 library:
   source-dirs: src
+  dependencies:
+  - vector
+  - megaparsec
 
 executables:
   clasificacion-exe:
@@ -35,8 +38,10 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - clasificacion
+    - bytestring
     - cassava
     - optparse-applicative
+    - vector
 
 tests:
   clasificacion-test:
