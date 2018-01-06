@@ -1,9 +1,10 @@
 module Classification (
   CLine
   , classify
+  , prettyCLine
   ) where
 
-import Data.List(sortOn)
+import Data.List(intercalate, sortOn)
 
 import Swimmer
 
@@ -30,3 +31,14 @@ toCLine races swimmer = let
           times
           (sumTimes times)
               
+prettyCLine :: CLine -> String
+prettyCLine (CLine l n c (Year y) ts t) = w 10 l
+                                       ++ w 30 n
+                                       ++ w 20 c
+                                       ++ w 5 (show y)
+                                       ++ w 8 (prettyTime t)
+                                       ++ "("
+                                       ++ intercalate ", " (map prettyTime ts)
+                                       ++ ")\n"
+
+    where w n p = take (n-1) (p ++ repeat ' ') ++ " "

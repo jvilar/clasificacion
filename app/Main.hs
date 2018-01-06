@@ -91,15 +91,18 @@ readInput opts = do
          Right v -> return v
          Left m -> error m
 
+printClassification :: [CLine] -> IO ()
+printClassification = mapM_ (putStr . prettyCLine)
+
 process :: Options -> Vector (Vector String) -> IO ()
 process opts lines = let
    parsedLines = V.map parseLine lines
    swimmers = parseResults lines
    d = distanceO opts  
-   races = [(d, FreeStyle), (d, BreastStroke), (d, BackStroke), (d, Butterfly)]
+   races = [(d, Butterfly), (d, BackStroke), (d, BreastStroke), (d, FreeStyle)]
    classification = classify (sexO opts) (years opts) races swimmers
  in case output opts of
-        Classification -> print classification
+        Classification -> printClassification classification
         CSV -> print lines
         ParsedLines -> print parsedLines
         Swimmers -> print swimmers
