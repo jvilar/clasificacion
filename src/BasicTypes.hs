@@ -7,22 +7,26 @@ module BasicTypes (
    , Sex(..)
    , Time(..)
    , Year(..)
+   , sumTimes
 ) where
 
 data Style = FreeStyle
            | BreastStroke
            | BackStroke
            | Butterfly
-           | Medley deriving Show
+           | Medley deriving (Eq, Show)
 
 type Name = String
 type License = String
 type Club = String
 
-newtype Distance = Distance Int deriving Show
+newtype Distance = Distance Int deriving (Eq, Show)
 
-data Sex = Men | Women | Mixed deriving Show
+data Sex = Men | Women | Mixed deriving (Eq, Show)
 
-newtype Time = Time Int deriving Show
+newtype Time = Time { centiSeconds :: Int } deriving (Eq, Ord, Show)
 
-newtype Year = Year Int deriving Show
+sumTimes :: [Time] -> Time
+sumTimes = Time . sum . map centiSeconds
+
+newtype Year = Year Int deriving (Eq, Show)

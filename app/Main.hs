@@ -2,13 +2,15 @@ module Main where
 
 import qualified Data.ByteString.Lazy as B
 
+import Data.Csv (decode, HasHeader(NoHeader))
 import Data.List(intercalate)
 import Data.Monoid((<>))
 import Data.Vector(Vector)
 import qualified Data.Vector as V
 import Options.Applicative
 
-import Data.Csv (decode, HasHeader(NoHeader))
+import BasicTypes
+import Classification
 import LineParser
 import Parser
 
@@ -20,13 +22,41 @@ data Output = Classification
 
 data Options = Options {
                          fileName :: Maybe FilePath
+                         , distanceO :: Distance
+                         , sexO :: Sex
+                         , years :: [Year]
                          , output :: Output
                        } deriving Show
+
+opt = info (optParser <**> helper)
+       (fullDesc
+       <> progDesc "Rank swimmers by their marks"
+       <> header "clasificacion")
 
 optParser :: Parser Options
 optParser = Options
    <$> fileArgument
+   <*> distanceOption
+   <*> sexOption
+   <*> yearOption
    <*> outputOption
+
+intReader = eitherReader r
+            where  r s = case reads s of
+                             [(n, "")] -> Right n
+                             _ -> Left $ "Invalid number: " ++ s
+
+
+distanceOption = option (Distance <$> intReader)
+                 (long "distance"
+                  <> short 'd'
+                  <> metavar "DISTANCE"
+                  <> value (Distance 50)
+                  <> help "Distance of the races"
+                  )
+
+sexOption = flag' Men (long "men" <> short 'm' <> help "Men results")
+            <|> flag' Women (long "women" <> short 'w' <> help "Women results")
 
 outputOption = option auto 
                (long "output"
@@ -36,10 +66,13 @@ outputOption = option auto
                 <> help ("Expected output, one of: " ++ intercalate ", " (map show [Classification ..]))
                 )
 
-opt = info ( optParser <**> helper)
-       (fullDesc
-       <> progDesc "Rank swimmers by their marks"
-       <> header "clasificacion")
+yearOption = some (option (Year <$> intReader)
+                   (long "year"
+                    <> short 'y'
+                    <> metavar "YEAR"
+                    <> help "Year of the swimmers"
+                   )
+                  )
 
 helpOption = switch ( long "help"
                     <> short 'h'
@@ -62,7 +95,9 @@ process :: Options -> Vector (Vector String) -> IO ()
 process opts lines = let
    parsedLines = V.map parseLine lines
    swimmers = parseResults lines
-   classification = "classification"
+   d = distanceO opts  
+   races = [(d, FreeStyle), (d, BreastStroke), (d, BackStroke), (d, Butterfly)]
+   classification = classify (sexO opts) (years opts) races swimmers
  in case output opts of
         Classification -> print classification
         CSV -> print lines

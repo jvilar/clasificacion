@@ -7,6 +7,7 @@ module Swimmer (
   , emptySwimmers
   , addSwimmer
   , addResult
+  , selectSwimmers
   , module BasicTypes
 ) where
 
@@ -50,4 +51,8 @@ addResult l r ss = let
    s' = s { results = r : results s }
  in M.insert l s' ss
 
+selectSwimmers :: (Swimmer -> Bool) -> Swimmers -> [ Swimmer ]
+selectSwimmers pred = M.foldr step []
+   where step s l | pred s = s : l
+                  | otherwise = l
 
