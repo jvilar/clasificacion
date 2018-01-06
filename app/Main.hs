@@ -2,21 +2,39 @@ module Main where
 
 import qualified Data.ByteString.Lazy as B
 
+import Data.List(intercalate)
 import Data.Monoid((<>))
 import Data.Vector(Vector)
 import qualified Data.Vector as V
 import Options.Applicative
 
 import Data.Csv (decode, HasHeader(NoHeader))
+import LineParser
 import Parser
+
+data Output = Classification
+            | CSV
+            | ParsedLines
+            | Swimmers
+              deriving (Show, Read, Enum)
 
 data Options = Options {
                          fileName :: Maybe FilePath
+                         , output :: Output
                        } deriving Show
 
 optParser :: Parser Options
 optParser = Options
    <$> fileArgument
+   <*> outputOption
+
+outputOption = option auto 
+               (long "output"
+                <> short 'o'
+                <> metavar "OUTPUT"
+                <> value Classification
+                <> help ("Expected output, one of: " ++ intercalate ", " (map show [Classification ..]))
+                )
 
 opt = info ( optParser <**> helper)
        (fullDesc
@@ -40,10 +58,19 @@ readInput opts = do
          Right v -> return v
          Left m -> error m
 
+process :: Options -> Vector (Vector String) -> IO ()
+process opts lines = let
+   parsedLines = V.map parseLine lines
+   swimmers = parseResults lines
+   classification = "classification"
+ in case output opts of
+        Classification -> print classification
+        CSV -> print lines
+        ParsedLines -> print parsedLines
+        Swimmers -> print swimmers
+
 main :: IO ()
 main = do
          opts <- execParser opt
          lines <- readInput opts
-         let results = parseResults lines
-
-         print results
+         process opts lines
