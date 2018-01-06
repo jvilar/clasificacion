@@ -44,6 +44,6 @@ main :: IO ()
 main = do
          opts <- execParser opt
          lines <- readInput opts
-         let plines = V.map parseLine lines
+         let results = parseResults lines
 
-         print plines
+         print results
