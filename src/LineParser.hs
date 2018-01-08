@@ -1,23 +1,36 @@
 module LineParser (
   LineInfo(..)
+  , TimeLineData
+  , isTime
+  , getTime
   , parseLine
 ) where
 
-import Control.Monad(mzero, unless)
+import Control.Monad(mzero, unless, when)
 import Data.Char(digitToInt, isDigit, isSpace)
 import Data.Maybe(fromMaybe)
 import Data.Vector(Vector, (!))
+import qualified Data.Vector as V
 import Data.Void(Void)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 
 import BasicTypes
 
-data LineInfo = SwimmerLine Int License Name Year Club 
+data TimeLineData = TLD Distance
+                  | TLT Time
+                  | TLEmpty deriving Show
+
+isTime :: TimeLineData -> Bool
+isTime (TLT _) = True
+isTime _ = False
+
+getTime :: TimeLineData -> Time
+getTime (TLT t) = t
+
+data LineInfo = SwimmerLine Int License Name Year Club
               | RaceLine Distance Style Sex
-              | FirstLegLine Distance Time Time
-              | OtherLegLine Distance Time
-              | SimpleTimeLine Time
+              | TimeLine [TimeLineData]
               | OtherLine
               deriving Show
 
@@ -25,9 +38,7 @@ parseLine :: Vector String -> LineInfo
 parseLine v = fromMaybe OtherLine
             ( trySwimmerLine v
             <|> tryRaceLine v
-            <|> tryFirstLegLine v
-            <|> tryOtherLegLine v
-            <|> trySimpleTimeLine v
+            <|> tryTimeLine v
             )
 
 trySwimmerLine :: Vector String -> Maybe LineInfo
@@ -42,23 +53,19 @@ trySwimmerLine v = do
 tryRaceLine :: Vector String -> Maybe LineInfo
 tryRaceLine v = parseMaybe raceLineInfoParser (v ! 0)
 
-tryFirstLegLine :: Vector String -> Maybe LineInfo
-tryFirstLegLine v = do
-    d <- Distance <$> parseMaybe natParser (v ! 0)
-    p <- parseMaybe timeParser (v ! 1)
-    t <- parseMaybe timeParser (v ! 2)
-    return $ FirstLegLine d p t
-
-tryOtherLegLine:: Vector String -> Maybe LineInfo
-tryOtherLegLine v = do
-    d <- Distance <$> parseMaybe natParser (v ! 0)
-    p <- parseMaybe timeParser (v ! 1)
-    return $ OtherLegLine d p
-
-trySimpleTimeLine:: Vector String -> Maybe LineInfo
-trySimpleTimeLine v = do
-    p <- parseMaybe timeParser (v ! 1)
-    return $ SimpleTimeLine p
+tryTimeLine :: Vector String -> Maybe LineInfo
+tryTimeLine v = do
+                 tls <- V.foldM (\l e -> do
+                         x <- (TLT <$> parseMaybe timeParser e)
+                              <|> (TLD . Distance <$> parseMaybe natParser e)
+                              <|> (if null e
+                                      then return TLEmpty
+                                      else Nothing
+                                  )
+                         return $ l ++ [x]) [] v
+                 if any isTime tls
+                     then return $ TimeLine tls
+                     else Nothing
 
 raceLineInfoParser :: Parser LineInfo
 raceLineInfoParser = do

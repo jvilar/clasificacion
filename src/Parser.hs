@@ -52,13 +52,18 @@ transition InRace _ = return InRace
 
 transition AfterSwimmer s@SwimmerLine {} = foundSwimmer s
 transition AfterSwimmer r@RaceLine {} = foundRace r
-transition AfterSwimmer (FirstLegLine _ _ t) = do
-    info <- get
-    let Just (d, s, _) = raceI info
-        Just l = licenseI info
-        r = createResult d s t
-    put $ info { swimmersI = addResult l r (swimmersI info) }
-    return Inserted
+transition AfterSwimmer (TimeLine tls) =
+    case tls !? 3 of
+        Just td -> if isTime td
+                   then do
+                          info <- get
+                          let Just (d, s, _) = raceI info
+                              Just l = licenseI info
+                              r = createResult d s (getTime td)
+                          put $ info { swimmersI = addResult l r (swimmersI info) }
+                          return Inserted
+                   else return AfterSwimmer
+        Nothing -> return AfterSwimmer
 transition AfterSwimmer _ = return AfterSwimmer
 
 transition Inserted s@SwimmerLine {} = foundSwimmer s
@@ -82,5 +87,11 @@ foundSwimmer (SwimmerLine _ l n y c) = do
                , swimmersI = addSwimmer sw (swimmersI info)
                }
     return AfterSwimmer
+
+(!?) :: [a] -> Int -> Maybe a
+[] !? _ = Nothing
+(x:xs) !? 0 = Just x
+(_:xs) !? n = xs !? (n-1)
+
 
 
