@@ -25,6 +25,7 @@ data Options = Options {
                          , distanceO :: Distance
                          , sexO :: Sex
                          , years :: [Year]
+                         , timeField :: Int
                          , output :: Output
                        } deriving Show
 
@@ -39,15 +40,10 @@ optParser = Options
    <*> distanceOption
    <*> sexOption
    <*> yearOption
+   <*> timeFieldOption
    <*> outputOption
 
-intReader = eitherReader r
-            where  r s = case reads s of
-                             [(n, "")] -> Right n
-                             _ -> Left $ "Invalid number: " ++ s
-
-
-distanceOption = option (Distance <$> intReader)
+distanceOption = option (Distance <$> auto)
                  (long "distance"
                   <> short 'd'
                   <> metavar "DISTANCE"
@@ -58,7 +54,7 @@ distanceOption = option (Distance <$> intReader)
 sexOption = flag' Men (long "men" <> short 'm' <> help "Men results")
             <|> flag' Women (long "women" <> short 'w' <> help "Women results")
 
-outputOption = option auto 
+outputOption = option auto
                (long "output"
                 <> short 'o'
                 <> metavar "OUTPUT"
@@ -66,12 +62,20 @@ outputOption = option auto
                 <> help ("Expected output, one of: " ++ intercalate ", " (map show [Classification ..]))
                 )
 
-yearOption = some (option (Year <$> intReader)
+yearOption = some (option (Year <$> auto)
                    (long "year"
                     <> short 'y'
                     <> metavar "YEAR"
                     <> help "Year of the swimmers"
                    )
+                  )
+
+timeFieldOption = option auto
+                 (long "timeField"
+                  <> short 't'
+                  <> metavar "INT"
+                  <> value 3
+                  <> help "Position in the line where the time is found"
                   )
 
 helpOption = switch ( long "help"
@@ -97,8 +101,8 @@ printClassification = mapM_ (putStr . prettyCLine)
 process :: Options -> Vector (Vector String) -> IO ()
 process opts lines = let
    parsedLines = V.map parseLine lines
-   swimmers = parseResults lines
-   d = distanceO opts  
+   swimmers = parseResults (timeField opts) lines
+   d = distanceO opts
    races = [(d, Butterfly), (d, BackStroke), (d, BreastStroke), (d, FreeStyle)]
    classification = classify (sexO opts) (years opts) races swimmers
  in case output opts of

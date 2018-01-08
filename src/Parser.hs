@@ -9,10 +9,10 @@ import qualified Data.Vector as V
 import LineParser
 import Swimmer
 
-parseResults :: Vector(Vector String) -> Swimmers
-parseResults v = let
+parseResults :: Int -> Vector(Vector String) -> Swimmers
+parseResults tf v = let
   lines = V.foldr ((:) . parseLine) [] v
- in fsa lines
+ in fsa tf lines
 
 data FSAState = Initial
                 | InRace
@@ -23,13 +23,14 @@ data FSAState = Initial
 data Info = Info { raceI :: Maybe (Distance, Style, Sex)
                  , licenseI :: Maybe License
                  , swimmersI :: Swimmers
+                 , timeField :: Int
                  }
 
-emptyInfo :: Info
+emptyInfo :: Int -> Info
 emptyInfo = Info Nothing Nothing emptySwimmers
 
-fsa :: [LineInfo] -> Swimmers
-fsa ls = swimmersI $ execState (runFSA Initial ls) emptyInfo
+fsa :: Int -> [LineInfo] -> Swimmers
+fsa tf ls = swimmersI $ execState (runFSA Initial ls) (emptyInfo tf)
 
 type FSA = State Info
 
@@ -52,11 +53,12 @@ transition InRace _ = return InRace
 
 transition AfterSwimmer s@SwimmerLine {} = foundSwimmer s
 transition AfterSwimmer r@RaceLine {} = foundRace r
-transition AfterSwimmer (TimeLine tls) =
-    case tls !? 3 of
+transition AfterSwimmer (TimeLine tls) = do
+    info <- get
+    let tf = timeField info
+    case tls !? tf of
         Just td -> if isTime td
                    then do
-                          info <- get
                           let Just (d, s, _) = raceI info
                               Just l = licenseI info
                               r = createResult d s (getTime td)
