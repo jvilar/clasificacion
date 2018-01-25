@@ -24,7 +24,7 @@ data Output = Classification
 data Options = Options {
                          fileName :: Maybe FilePath
                          , distanceO :: Distance
-                         , sexO :: Sex
+                         , sexO :: Maybe Sex
                          , years :: [Year]
                          , clubO :: Maybe Club
                          , timeField :: Int
@@ -54,8 +54,9 @@ distanceOption = option (Distance <$> auto)
                   <> help "Distance of the races"
                   )
 
-sexOption = flag' Men (long "men" <> short 'm' <> help "Men results")
-            <|> flag' Women (long "women" <> short 'w' <> help "Women results")
+sexOption = flag' (Just Men) (long "men" <> short 'm' <> help "Men results")
+            <|> flag' (Just Women) (long "women" <> short 'w' <> help "Women results")
+            <|> pure Nothing
 
 outputOption = option auto
                (long "output"
@@ -65,7 +66,7 @@ outputOption = option auto
                 <> help ("Expected output, one of: " ++ intercalate ", " (map show [Classification ..]))
                 )
 
-yearOption = some (option (Year <$> auto)
+yearOption = many (option (Year <$> auto)
                    (long "year"
                     <> short 'y'
                     <> metavar "YEAR"
@@ -113,9 +114,17 @@ process :: Options -> Vector (Vector String) -> IO ()
 process opts lines = let
    parsedLines = V.map parseLine lines
    swimmers = parseResults (timeField opts) lines
-   filter sw = sex sw == sexO opts
-               && year sw `elem` years opts
-               && maybe True (== club sw) (clubO opts)
+   filter = let
+               sf = case sexO opts of
+                          Nothing -> const True
+                          Just s -> (== s) . sex
+               yf = case years opts of
+                      [] -> const True
+                      l -> (`elem` l) . year
+               cf = case clubO opts of
+                      Nothing -> const True
+                      Just c -> (== c) . club
+            in \sw -> sf sw && yf sw && cf sw
    selected = selectSwimmers filter swimmers
    d = distanceO opts
    races = [(d, Butterfly), (d, BackStroke), (d, BreastStroke), (d, FreeStyle)]
