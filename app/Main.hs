@@ -96,7 +96,7 @@ readInput opts = do
          Left m -> error m
 
 printClassification :: [CLine] -> IO ()
-printClassification = mapM_ (putStr . prettyCLine)
+printClassification = mapM_ (putStr . prettyCLine) . zip [1..]
 
 process :: Options -> Vector (Vector String) -> IO ()
 process opts lines = let

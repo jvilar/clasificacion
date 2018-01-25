@@ -31,11 +31,15 @@ toCLine races swimmer = let
           times
           (sumTimes times)
               
-prettyCLine :: CLine -> String
-prettyCLine (CLine l n c (Year y) ts t) = w 10 l
+prettyCLine :: (Int, CLine) -> String
+prettyCLine (i, CLine l n c (Year y) ts t) = show i ++ ". "
+                                       ++ w 10 l
                                        ++ w 30 n
-                                       ++ w 20 c
+                                       ++ "("
+                                       ++ c
+                                       ++ "), "
                                        ++ w 5 (show y)
+                                       ++ "\n\n  * "
                                        ++ w 8 (prettyTime t)
                                        ++ "("
                                        ++ intercalate ", " (map prettyTime ts)
