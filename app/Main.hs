@@ -13,6 +13,7 @@ import BasicTypes
 import Classification
 import LineParser
 import Parser
+import Swimmer
 
 data Output = Classification
             | CSV
@@ -25,6 +26,7 @@ data Options = Options {
                          , distanceO :: Distance
                          , sexO :: Sex
                          , years :: [Year]
+                         , clubO :: Maybe Club
                          , timeField :: Int
                          , output :: Output
                        } deriving Show
@@ -40,6 +42,7 @@ optParser = Options
    <*> distanceOption
    <*> sexOption
    <*> yearOption
+   <*> clubOption
    <*> timeFieldOption
    <*> outputOption
 
@@ -69,6 +72,14 @@ yearOption = some (option (Year <$> auto)
                     <> help "Year of the swimmers"
                    )
                   )
+
+clubOption = option (Just <$> str)
+                   (long "club"
+                    <> short 'c'
+                    <> metavar "CLUB"
+                    <> value Nothing
+                    <> help "Club of the swimmers"
+                   )
 
 timeFieldOption = option auto
                  (long "timeField"
@@ -102,9 +113,13 @@ process :: Options -> Vector (Vector String) -> IO ()
 process opts lines = let
    parsedLines = V.map parseLine lines
    swimmers = parseResults (timeField opts) lines
+   filter sw = sex sw == sexO opts
+               && year sw `elem` years opts
+               && maybe True (== club sw) (clubO opts)
+   selected = selectSwimmers filter swimmers
    d = distanceO opts
    races = [(d, Butterfly), (d, BackStroke), (d, BreastStroke), (d, FreeStyle)]
-   classification = classify (sexO opts) (years opts) races swimmers
+   classification = classify races selected
  in case output opts of
         Classification -> printClassification classification
         CSV -> print lines

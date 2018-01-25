@@ -12,10 +12,8 @@ data CLine = CLine License Name Club Year [Time] Time deriving Show
 
 totalTime (CLine _ _ _ _ _ t) = t
 
-classify :: Sex -> [Year] -> [(Distance, Style)] -> Swimmers -> [CLine]
-classify sexw years races swimmers = let
-   selected = selectSwimmers (\sw -> sex sw == sexw && year sw `elem` years) swimmers
-  in sortOn totalTime $ map (toCLine races) selected
+classify :: [(Distance, Style)] -> [Swimmer] -> [CLine]
+classify races = sortOn totalTime . map (toCLine races)
 
 toCLine :: [(Distance, Style)] -> Swimmer -> CLine
 toCLine races swimmer = let
