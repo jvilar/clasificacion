@@ -19,7 +19,7 @@ toCLine :: [(Distance, Style)] -> Swimmer -> CLine
 toCLine races swimmer = let
     rs = results swimmer
     findTime (d, s) = case filter (\r -> distance r == d && style r == s) rs of
-                         [] -> Time 300000
+                         [] -> NoTime
                          [r] -> time r
     times = map findTime races
  in CLine (license swimmer)
@@ -38,8 +38,8 @@ prettyCLine (i, CLine l n c (Year y) ts t) = show i ++ ". "
                                        ++ "), "
                                        ++ w 5 (show y)
                                        ++ "\n\n  * "
-                                       ++ w 8 (prettyTime t)
-                                       ++ "("
+                                       ++ prettyTime t
+                                       ++ " ("
                                        ++ intercalate ", " (map prettyTime ts)
                                        ++ ")\n"
 

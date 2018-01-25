@@ -124,6 +124,6 @@ timeParser = do
     p <- natParser
     n <- ( (\s c -> (p * 60 + s) * 100 + c) <$> (char ':' *> natParser) <* char '.' <*> natParser)
            <|> ( (p*100+) <$> (char '.' *> natParser))
-    return $ Time n
+    return $ mkTime n
 
 
