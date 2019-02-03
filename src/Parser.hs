@@ -9,91 +9,9 @@ import qualified Data.Vector as V
 import LineParser
 import Swimmer
 
-parseResults :: Int -> Vector(Vector String) -> Swimmers
-parseResults tf v = let
-  lines = V.foldr ((:) . parseLine) [] v
- in fsa tf lines
-
-data FSAState = Initial
-                | InRace
-                | AfterSwimmer
-                | Inserted
-                | Error String
-
-data Info = Info { raceI :: Maybe (Distance, Style, Sex)
-                 , licenseI :: Maybe License
-                 , swimmersI :: Swimmers
-                 , timeField :: Int
-                 }
-
-emptyInfo :: Int -> Info
-emptyInfo = Info Nothing Nothing emptySwimmers
-
-fsa :: Int -> [LineInfo] -> Swimmers
-fsa tf ls = swimmersI $ execState (runFSA Initial ls) (emptyInfo tf)
-
-type FSA = State Info
-
-runFSA :: FSAState -> [LineInfo] -> FSA ()
-runFSA _ [] = return ()
-runFSA s (l:ls) = do
-   s' <- transition s l
-   case s' of
-       Error m -> error $ "Parsing error, message " ++ m ++ "\nIn line: " ++ show l
-       _ -> runFSA s' ls
-
-transition :: FSAState -> LineInfo -> FSA FSAState
-transition Initial SwimmerLine {} = return $ Error "Swimmer outside race"
-transition Initial r@RaceLine {} = foundRace r
-transition Initial _ = return Initial
-
-transition InRace s@SwimmerLine {} = foundSwimmer s
-transition InRace r@RaceLine {} = foundRace r
-transition InRace _ = return InRace
-
-transition AfterSwimmer s@SwimmerLine {} = foundSwimmer s
-transition AfterSwimmer r@RaceLine {} = foundRace r
-transition AfterSwimmer (TimeLine tls) = do
-    info <- get
-    let tf = timeField info
-    case tls !? tf of
-        Just td -> if isTime td
-                   then do
-                          let Just (d, s, _) = raceI info
-                              Just l = licenseI info
-                              r = createResult d s (getTime td)
-                          put $ info { swimmersI = addResult l r (swimmersI info) }
-                          return Inserted
-                   else return AfterSwimmer
-        Nothing -> return AfterSwimmer
-transition AfterSwimmer _ = return AfterSwimmer
-
-transition Inserted s@SwimmerLine {} = foundSwimmer s
-transition Inserted r@RaceLine {} = foundRace r
-transition Inserted _ = return Inserted
-
-foundRace :: LineInfo -> FSA FSAState
-foundRace (RaceLine d st s) = do
-    info <- get
-    put $ info { raceI = Just (d, st, s)
-               , licenseI = Nothing
-               }
-    return InRace
-
-foundSwimmer :: LineInfo -> FSA FSAState
-foundSwimmer (SwimmerLine _ l n y c) = do
-    info <- get
-    let Just (_, _, s) = raceI info
-        sw = createSwimmer n l c s y
-    put $ info { licenseI = Just l
-               , swimmersI = addSwimmer sw (swimmersI info)
-               }
-    return AfterSwimmer
-
-(!?) :: [a] -> Int -> Maybe a
-[] !? _ = Nothing
-(x:xs) !? 0 = Just x
-(_:xs) !? n = xs !? (n-1)
-
+parseResults :: [String] -> Swimmers
+parseResults (h:r) = let
+  header = parseHeaderLine h
+ in foldr (addSwimmer . parseLine header) emptySwimmers r
 
 

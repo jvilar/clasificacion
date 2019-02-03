@@ -8,6 +8,7 @@ import Data.Monoid((<>))
 import Data.Vector(Vector)
 import qualified Data.Vector as V
 import Options.Applicative
+import Text.Show.Pretty(pPrint)
 
 import BasicTypes
 import Classification
@@ -16,7 +17,7 @@ import Parser
 import Swimmer
 
 data Output = Classification
-            | CSV
+            | Header
             | ParsedLines
             | Swimmers
               deriving (Show, Read, Enum)
@@ -97,23 +98,19 @@ helpOption = switch ( long "help"
 fileArgument = (Just <$> argument str (metavar "FILE"))
                <|> pure Nothing
 
-readInput :: Options -> IO (Vector (Vector String))
-readInput opts = do
-     all <- case fileName opts of
-               Nothing -> B.getContents
-               Just fn -> B.readFile fn
-     let lines = decode NoHeader all :: Either String (Vector (Vector String))
-     case lines of
-         Right v -> return v
-         Left m -> error m
+readInput :: Options -> IO [String]
+readInput opts = lines <$> case fileName opts of
+                             Nothing -> getContents
+                             Just fn -> readFile fn
 
 printClassification :: [CLine] -> IO ()
 printClassification = mapM_ (putStr . prettyCLine) . zip [1..]
 
-process :: Options -> Vector (Vector String) -> IO ()
+process :: Options -> [String] -> IO ()
 process opts lines = let
-   parsedLines = V.map parseLine lines
-   swimmers = parseResults (timeField opts) lines
+   header = parseHeaderLine $ head lines
+   parsedLines = map (parseLine header) $ tail lines
+   swimmers = parseResults lines
    filter = let
                sf = case sexO opts of
                           Nothing -> const True
@@ -131,9 +128,9 @@ process opts lines = let
    classification = classify races selected
  in case output opts of
         Classification -> printClassification classification
-        CSV -> print lines
-        ParsedLines -> print parsedLines
-        Swimmers -> print swimmers
+        Header -> pPrint header
+        ParsedLines -> pPrint parsedLines
+        Swimmers -> pPrint swimmers
 
 main :: IO ()
 main = do

@@ -17,15 +17,14 @@ import qualified Data.Map.Strict as M
 import BasicTypes
 
 data Swimmer = Swimmer { name :: Name
-                       , license :: License
                        , club :: Club
                        , sex :: Sex
                        , year :: Year
                        , results :: [ Result ]
                        } deriving Show
 
-createSwimmer :: Name -> License -> Club -> Sex -> Year -> Swimmer
-createSwimmer n l c s y = Swimmer n l c s y []
+createSwimmer :: Name -> Club -> Sex -> Year -> Swimmer
+createSwimmer n c s y = Swimmer n c s y []
 
 data Result = Result { distance :: Distance
                      , style :: Style
@@ -35,15 +34,15 @@ data Result = Result { distance :: Distance
 createResult :: Distance -> Style -> Time -> Result
 createResult = Result
 
-type Swimmers = Map License Swimmer
+type Swimmers = Map Name Swimmer
 
 emptySwimmers :: Swimmers
 emptySwimmers = M.empty
 
 addSwimmer :: Swimmer -> Swimmers -> Swimmers
-addSwimmer s ss = if license s `M.member` ss
+addSwimmer s ss = if name s `M.member` ss
                   then ss
-                  else M.insert (license s) s ss
+                  else M.insert (name s) s ss
 
 addResult :: License -> Result -> Swimmers -> Swimmers
 addResult l r ss = let

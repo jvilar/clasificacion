@@ -8,9 +8,9 @@ import Data.List(intercalate, sortOn)
 
 import Swimmer
 
-data CLine = CLine License Name Club Year [Time] Time deriving Show
+data CLine = CLine Name Club Year [Time] Time deriving Show
 
-totalTime (CLine _ _ _ _ _ t) = t
+totalTime (CLine _ _ _ _ t) = t
 
 classify :: [(Distance, Style)] -> [Swimmer] -> [CLine]
 classify races = sortOn totalTime . map (toCLine races)
@@ -22,16 +22,14 @@ toCLine races swimmer = let
                          [] -> NoTime
                          [r] -> time r
     times = map findTime races
- in CLine (license swimmer)
-          (name swimmer)
+ in CLine (name swimmer)
           (club swimmer)
           (year swimmer)
           times
           (sumTimes times)
-              
+
 prettyCLine :: (Int, CLine) -> String
-prettyCLine (i, CLine l n c (Year y) ts t) = show i ++ ". "
-                                       ++ w 10 l
+prettyCLine (i, CLine n c (Year y) ts t) = show i ++ ". "
                                        ++ w 30 n
                                        ++ "("
                                        ++ c

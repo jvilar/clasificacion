@@ -1,21 +1,135 @@
+{-# LANGUAGE LambdaCase #-}
 module LineParser (
-  LineInfo(..)
-  , TimeLineData
-  , isTime
-  , getTime
-  , parseLine
+  parseHeaderLine,
+  parseLine
 ) where
 
-import Control.Monad(mzero, unless, when)
+import Control.Monad(forM, mzero, unless, when)
+import Control.Monad.State.Strict(get, evalState, execState, runState, State)
 import Data.Char(digitToInt, isDigit, isSpace)
-import Data.Maybe(fromMaybe)
+import Data.Map(Map)
+import qualified Data.Map as M
+import Data.Maybe(fromJust, isJust, fromMaybe)
+import Data.List(takeWhile)
+import Data.List.Split(splitOn)
 import Data.Vector(Vector, (!))
 import qualified Data.Vector as V
 import Data.Void(Void)
-import Text.Megaparsec
+import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 
 import BasicTypes
+import Swimmer
+
+import Debug.Trace
+
+data HeaderInfo = NameH
+                  | BirthDateH
+                  | SexH
+                  | LongClubH
+                  | ShortClubH
+                  | ClubNameH
+                  | EventNoH Int
+                  | StyleH Int
+                  | TimeH Int
+                  | PlaceH Int
+                  | PointH Int
+                  | ProgressionH Int
+                  | EntryTimeH Int
+                  | MkTitleH Int
+                  | MkTotalH Int
+                  | MkPlaceH Int
+                  | UnknownH String
+                    deriving (Eq, Ord, Show)
+
+type HeaderLine = [ HeaderInfo ]
+
+parseHeaderLine :: String -> HeaderMap
+parseHeaderLine  l = let
+  fields = (\case Nothing -> error "Bad header"
+                  Just x -> x) $ parseMaybe (tabFields headerParser <* space) l
+  step (f, n) m = M.insert f n m
+  in foldr step M.empty $ zip fields [0..]
+
+tabFields :: Parser a -> Parser [a]
+tabFields = flip sepBy $ char '\t'
+
+headerParser :: Parser HeaderInfo
+headerParser = do
+  (w, mn) <- wordNumberParser
+  let n = fromMaybe 0 mn
+  return $ case w of
+    "NAME" -> NameH
+    "BIRTHDATE" -> BirthDateH
+    "GENDER" -> SexH
+    "LONGCLUB" -> LongClubH
+    "SHORTCLUB" -> ShortClubH
+    "CLUBNAME" -> ClubNameH
+    "EVENTNO" -> EventNoH n
+    "STYLE" -> StyleH n
+    "TIME" -> TimeH n
+    "PLACE" -> PlaceH n
+    "POINT" -> PointH n
+    "PROGRESSION" -> ProgressionH n
+    "ENTRYTIME" -> EntryTimeH n
+    "MKTITLE" -> MkTitleH n
+    "MKTOTAL" -> MkTotalH n
+    "MKPLACE" -> MkPlaceH n
+    _ -> UnknownH $ case mn of
+                      Nothing -> w
+                      Just n -> w ++ show n
+
+
+wordNumberParser :: Parser (String, Maybe Int)
+wordNumberParser = (,) <$> some letterChar
+                       <*> (do
+                               n <- many digitChar
+                               return $ if null n
+                                 then Nothing
+                                 else Just $ read n
+                           )
+
+type HeaderMap = Map HeaderInfo Int
+type FieldsMap = Map Int String
+type LineProcessor = State (HeaderMap, FieldsMap)
+
+
+parseLine :: HeaderMap -> String -> Swimmer
+parseLine hmap l = let
+  fields = foldr step M.empty . zip [0.. ] $ splitOn "\t" l
+  step (n, s) = M.insert n s
+  in evalState buildSwimmer (hmap, fields)
+
+buildSwimmer :: LineProcessor Swimmer
+buildSwimmer = do
+  Just name <- parseP NameH swimmerNameParser
+  Just club <- parseP ClubNameH clubParser
+  Just sex <- parseP SexH sexParser
+  Just year <- parseP BirthDateH yearParser
+  results <- getResults 1
+  return $ Swimmer { name = name
+                   , club = club
+                   , sex = sex
+                   , year = year
+                   , results = results
+                   }
+
+getResults :: Int -> LineProcessor [Result]
+getResults n = getResult n >>= \case
+    Nothing -> return []
+    Just r -> (r:) <$> getResults (n+1)
+
+getResult :: Int -> LineProcessor (Maybe Result)
+getResult n = do
+  ds <- parseP (StyleH n) ( (,) <$>  allowSpace distanceParser <*> styleParser)
+  time <- parseP (TimeH n) timeParser
+  return $ Result <$> (fst <$> ds) <*> (snd <$> ds) <*> time
+
+
+parseP :: HeaderInfo -> Parser a -> LineProcessor (Maybe a)
+parseP h p = do
+  (hmap, fmap) <- get
+  return . parseMaybe p $ fmap M.! (hmap M.! h)
 
 data TimeLineData = TLD Distance
                   | TLT Time
@@ -34,12 +148,6 @@ data LineInfo = SwimmerLine Int License Name Year Club
               | OtherLine
               deriving Show
 
-parseLine :: Vector String -> LineInfo
-parseLine v = fromMaybe OtherLine
-            ( trySwimmerLine v
-            <|> tryRaceLine v
-            <|> tryTimeLine v
-            )
 
 trySwimmerLine :: Vector String -> Maybe LineInfo
 trySwimmerLine v = do
@@ -98,11 +206,13 @@ styleParser = stringParser [("LIBRE", FreeStyle), ("ESPALDA", BackStroke),
                            ]
 
 sexParser :: Parser Sex
-sexParser = stringParser [("MASCULINO", Men), ("FEMENINO", Women), ("MIXTO", Mixed),
-                          ("Masculino", Men), ("Femenino", Women), ("Mixto", Mixed)]
+sexParser = stringParser [("M", Men), ("F", Women)]
 
 natParser :: Parser Int
 natParser = read <$> some digitChar
+
+yearParser :: Parser Year
+yearParser = Year <$> (natParser *> char '/' *> natParser *> char '/' *> natParser)
 
 distanceParser :: Parser Distance
 distanceParser = Distance <$> allowSpace natParser <* char 'm' <* optional (char '.')

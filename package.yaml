@@ -28,10 +28,11 @@ library:
   - containers
   - megaparsec
   - mtl
+  - split
   - vector
 
 executables:
-  clasificacion-exe:
+  clasificacion:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -43,6 +44,7 @@ executables:
     - bytestring
     - cassava
     - optparse-applicative
+    - pretty-show
     - vector
 
 tests:
