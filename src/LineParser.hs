@@ -48,7 +48,7 @@ parseHeaderLine :: String -> HeaderMap
 parseHeaderLine  l = let
   fields = (\case Nothing -> error "Bad header"
                   Just x -> x) $ parseMaybe (tabFields headerParser <* space) l
-  step (f, n) m = M.insert f n m
+  step = uncurry M.insert
   in foldr step M.empty $ zip fields [0..]
 
 tabFields :: Parser a -> Parser [a]
@@ -142,49 +142,6 @@ isTime _ = False
 getTime :: TimeLineData -> Time
 getTime (TLT t) = t
 
-data LineInfo = SwimmerLine Int License Name Year Club
-              | RaceLine Distance Style Sex
-              | TimeLine [TimeLineData]
-              | OtherLine
-              deriving Show
-
-
-trySwimmerLine :: Vector String -> Maybe LineInfo
-trySwimmerLine v = do
-    n <- parseMaybe natParser (v ! 0)
-    l <- parseMaybe licenseParser (v ! 1)
-    name <- parseMaybe swimmerNameParser (v ! 2)
-    y <- Year <$> parseMaybe natParser (v ! 3)
-    club <- parseMaybe clubParser (v ! 4)
-    return $ SwimmerLine n l name y club
-
-tryRaceLine :: Vector String -> Maybe LineInfo
-tryRaceLine v = parseMaybe raceLineInfoParser (v ! 0)
-
-tryTimeLine :: Vector String -> Maybe LineInfo
-tryTimeLine v = do
-                 tls <- V.foldM (\l e -> do
-                         x <- (TLT <$> parseMaybe timeParser e)
-                              <|> (TLD . Distance <$> parseMaybe natParser e)
-                              <|> (if null e
-                                      then return TLEmpty
-                                      else Nothing
-                                  )
-                         return $ l ++ [x]) [] v
-                 if any isTime tls
-                     then return $ TimeLine tls
-                     else Nothing
-
-raceLineInfoParser :: Parser LineInfo
-raceLineInfoParser = do
-    natParser *> space *> char '-' *> space
-    d <- distanceParser
-    space
-    s <- styleParser
-    space
-    sex <- sexParser
-    return $ RaceLine d s sex
-
 type Parser = Parsec Void String
 
 allowSpace :: Parser a -> Parser a
@@ -217,12 +174,6 @@ yearParser = Year <$> (natParser *> char '/' *> natParser *> char '/' *> natPars
 distanceParser :: Parser Distance
 distanceParser = Distance <$> allowSpace natParser <* char 'm' <* optional (char '.')
 
-licenseParser :: Parser License
-licenseParser = do
-                  l <- some noSpace
-                  unless (any isDigit l) . fail $ "Bad license: " ++ l
-                  return l
-
 swimmerNameParser :: Parser Name
 swimmerNameParser = unwords <$> sepBy1 (some noSpace) space
 
@@ -235,5 +186,3 @@ timeParser = do
     n <- ( (\s c -> (p * 60 + s) * 100 + c) <$> (char ':' *> natParser) <* char '.' <*> natParser)
            <|> ( (p*100+) <$> (char '.' *> natParser))
     return $ mkTime n
-
-

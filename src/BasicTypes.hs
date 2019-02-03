@@ -1,7 +1,6 @@
 module BasicTypes (
      Style(..)
    , Name
-   , License
    , Club
    , Distance(..)
    , Sex(..)
@@ -21,7 +20,6 @@ data Style = FreeStyle
            | Medley deriving (Eq, Show)
 
 type Name = String
-type License = String
 type Club = String
 
 newtype Distance = Distance Int deriving (Eq, Show)

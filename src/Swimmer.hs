@@ -6,7 +6,6 @@ module Swimmer (
   , Swimmers
   , emptySwimmers
   , addSwimmer
-  , addResult
   , selectSwimmers
   , module BasicTypes
 ) where
@@ -43,12 +42,6 @@ addSwimmer :: Swimmer -> Swimmers -> Swimmers
 addSwimmer s ss = if name s `M.member` ss
                   then ss
                   else M.insert (name s) s ss
-
-addResult :: License -> Result -> Swimmers -> Swimmers
-addResult l r ss = let
-   s = ss M.! l
-   s' = s { results = r : results s }
- in M.insert l s' ss
 
 selectSwimmers :: (Swimmer -> Bool) -> Swimmers -> [ Swimmer ]
 selectSwimmers pred = M.foldr step []
